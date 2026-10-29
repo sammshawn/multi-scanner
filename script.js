@@ -1,6 +1,7 @@
 // ============================================
 //  MULTI-MARKET DIGIT SCANNER
-//  File: script.js  |  Has buildCards() + marketGrid
+//  File: multi-scanner/script.js
+//  Has buildCards() + marketGrid. NO marketSelect.
 // ============================================
 
 const WS_URL = `wss://api.derivws.com/trading/v1/options/ws/public`;
@@ -42,9 +43,10 @@ const lastUpdateEl = document.getElementById("lastUpdate");
 
 let ws = null;
 
+// ---- BUILD CARDS ----
 function buildCards() {
   if (!marketGrid) {
-    console.error("marketGrid element not found in HTML");
+    console.error("marketGrid element not found");
     return;
   }
   marketGrid.innerHTML = MARKETS.map((m) => `
@@ -78,6 +80,7 @@ function buildCards() {
   `).join("");
 }
 
+// ---- CONNECT ----
 function connect() {
   setStatus("connecting", "Connecting…");
   ws = new WebSocket(WS_URL);
@@ -113,6 +116,7 @@ function connect() {
   };
 }
 
+// ---- TICK ----
 function handleTick(tick) {
   const symbol = tick.symbol;
   const s = state[symbol];
@@ -135,6 +139,7 @@ function handleTick(tick) {
   renderGlobal();
 }
 
+// ---- RENDER CARD ----
 function renderCard(symbol) {
   const s = state[symbol];
   const card = document.getElementById(`card-${symbol}`);
@@ -210,6 +215,7 @@ function renderCard(symbol) {
   }
 }
 
+// ---- GLOBAL STATS ----
 function renderGlobal() {
   let totalAll = 0, hottestMarket = null, hottestPct = 0;
   let strongestSignal = null, strongestDev = 0;
@@ -256,6 +262,7 @@ function setStatus(stateName, text) {
   if (stateName === "error") statusDot.classList.add("error");
 }
 
+// ---- BOOT ----
 buildCards();
 connect();
 
