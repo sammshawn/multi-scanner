@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Live digit frequency scanner across all 10 Deriv volatility markets — one screen, real-time." />
+  <title>Multi-Market Digit Scanner — Deriv</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark">◈</span>
+        Multi-Scanner
+        <span class="brand-tag">10 markets · live</span>
+      </div>
+      <div class="status" id="status">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Connecting…</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <section class="hero-mini">
+      <h1>All 10 Deriv markets. <span class="accent">One screen.</span></h1>
+      <p>Live digit frequency for every volatility index. Spot the outlier instantly.</p>
+    </section>
+
+    <section class="market-grid" id="marketGrid"></section>
+
+    <section class="global-stats">
+      <div class="gs-card">
+        <div class="gs-label">Total ticks (all markets)</div>
+        <div class="gs-value" id="totalTicksAll">0</div>
+      </div>
+      <div class="gs-card">
+        <div class="gs-label">Hottest market</div>
+        <div class="gs-value" id="hottestMarket">—</div>
+      </div>
+      <div class="gs-card">
+        <div class="gs-label">Strongest signal</div>
+        <div class="gs-value" id="strongestSignal">—</div>
+      </div>
+      <div class="gs-card">
+        <div class="gs-label">Last update</div>
+        <div class="gs-value" id="lastUpdate">—</div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>Multi-Market Digit Scanner · Not financial advice</p>
+    <p class="footer-links">
+      <a href="https://sammshawn.github.io/portofolio/" target="_blank" rel="noopener">Portfolio</a>
+      <span>·</span>
+      <a href="https://sammshawn.github.io/deriv-scanner/" target="_blank" rel="noopener">Single Scanner</a>
+    </p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
