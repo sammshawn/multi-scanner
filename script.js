@@ -1,9 +1,8 @@
 // ============================================
 //  MULTI-MARKET DIGIT SCANNER
-//  Decimals hardcoded per market (from live observation)
+//  Fixed: no hanging on initial load
 // ============================================
 
-const APP_ID = 1089;
 const WS_URL = `wss://api.derivws.com/trading/v1/options/ws/public`;
 
 const MARKETS = [
@@ -20,8 +19,8 @@ const MARKETS = [
 ];
 
 const MIN_TICKS_FOR_SIGNAL = 20;
+let reqId = 1;
 
-// State per market
 const state = {};
 MARKETS.forEach((m) => {
   state[m.symbol] = {
@@ -29,14 +28,10 @@ MARKETS.forEach((m) => {
     total: 0,
     lastQuote: null,
     lastDigit: null,
-    hotDigit: null,
-    hotPct: 0,
-    hotDev: 0,
     decimals: m.decimals,
   };
 });
 
-// DOM
 const statusDot = document.getElementById("statusDot");
 const statusText = document.getElementById("statusText");
 const marketGrid = document.getElementById("marketGrid");
@@ -47,7 +42,6 @@ const lastUpdateEl = document.getElementById("lastUpdate");
 
 let ws = null;
 
-// ---- BUILD CARDS ----
 function buildCards() {
   marketGrid.innerHTML = MARKETS.map((m) => `
     <div class="market-card" id="card-${m.symbol}" data-symbol="${m.symbol}">
@@ -58,24 +52,17 @@ function buildCards() {
         </div>
         <div class="mc-ticks" id="ticks-${m.symbol}">0</div>
       </div>
-
       <div class="mc-price" id="price-${m.symbol}">—</div>
-
       <div class="mc-hotcold">
         <div class="mc-hc-col hot">
           <div class="mc-hc-title">🔥 Hot</div>
-          <div id="hot-${m.symbol}">
-            <div class="mc-hc-empty">waiting…</div>
-          </div>
+          <div id="hot-${m.symbol}"><div class="mc-hc-empty">waiting…</div></div>
         </div>
         <div class="mc-hc-col cold">
           <div class="mc-hc-title">❄️ Cold</div>
-          <div id="cold-${m.symbol}">
-            <div class="mc-hc-empty">waiting…</div>
-          </div>
+          <div id="cold-${m.symbol}"><div class="mc-hc-empty">waiting…</div></div>
         </div>
       </div>
-
       <div class="mc-label">Distribution</div>
       <div class="mc-bars" id="bars-${m.symbol}">
         ${Array.from({ length: 10 }, (_, i) => `<div class="mc-bar" data-bar="${i}"></div>`).join("")}
@@ -87,14 +74,20 @@ function buildCards() {
   `).join("");
 }
 
-// ---- WEBSOCKET ----
 function connect() {
   setStatus("connecting", "Connecting…");
   ws = new WebSocket(WS_URL);
 
   ws.onopen = () => {
     setStatus("connected", "Live");
-    subscribeAll();
+    // Subscribe to all markets — no forget on fresh connection
+    MARKETS.forEach((m) => {
+      ws.send(JSON.stringify({
+        ticks: m.symbol,
+        subscribe: 1,
+        req_id: reqId++,
+      }));
+    });
   };
 
   ws.onmessage = (event) => {
@@ -117,23 +110,18 @@ function connect() {
   };
 }
 
-function subscribeAll() {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({ forget_all: "ticks" }));
-  MARKETS.forEach((m) => {
-    ws.send(JSON.stringify({ ticks: m.symbol, subscribe: 1 }));
-  });
-}
-
-// ---- TICK HANDLER ----
 function handleTick(tick) {
   const symbol = tick.symbol;
   const s = state[symbol];
   if (!s) return;
 
-  // Use the hardcoded decimals for this market
-  const quoteStr = tick.quote.toFixed(s.decimals);
-  const lastDigit = parseInt(quoteStr.slice(-1), 10);
+  const quoteNum = parseFloat(tick.quote);
+  if (!Number.isFinite(quoteNum)) return;
+
+  const quoteStr = quoteNum.toFixed(s.decimals);
+  const lastChar = quoteStr.slice(-1);
+  const lastDigit = parseInt(lastChar, 10);
+  if (!Number.isInteger(lastDigit) || lastDigit < 0 || lastDigit > 9) return;
 
   s.digits[lastDigit]++;
   s.total++;
@@ -144,7 +132,6 @@ function handleTick(tick) {
   renderGlobal();
 }
 
-// ---- RENDER CARD ----
 function renderCard(symbol) {
   const s = state[symbol];
   const card = document.getElementById(`card-${symbol}`);
@@ -154,8 +141,7 @@ function renderCard(symbol) {
 
   const sorted = s.digits
     .map((count, digit) => ({
-      digit,
-      count,
+      digit, count,
       pct: s.total > 0 ? (count / s.total) * 100 : 0,
     }))
     .sort((a, b) => b.pct - a.pct);
@@ -171,7 +157,6 @@ function renderCard(symbol) {
       if (dev > hotDev) { hotDev = dev; hotPct = pct; hotDigit = d; }
     }
   }
-  s.hotDigit = hotDigit; s.hotPct = hotPct; s.hotDev = hotDev;
 
   const priceEl = document.getElementById(`price-${symbol}`);
   if (s.lastQuote !== null) {
@@ -222,13 +207,9 @@ function renderCard(symbol) {
   }
 }
 
-// ---- GLOBAL STATS ----
 function renderGlobal() {
-  let totalAll = 0;
-  let hottestMarket = null;
-  let hottestPct = 0;
-  let strongestSignal = null;
-  let strongestDev = 0;
+  let totalAll = 0, hottestMarket = null, hottestPct = 0;
+  let strongestSignal = null, strongestDev = 0;
 
   MARKETS.forEach((m) => {
     const s = state[m.symbol];
@@ -242,9 +223,15 @@ function renderGlobal() {
           hottestMarket = `${m.short} · ${d} (${pct.toFixed(1)}%)`;
         }
       }
-      if (s.hotDev && s.hotDev > strongestDev) {
-        strongestDev = s.hotDev;
-        strongestSignal = `${m.short} · ${s.hotPct > 10 ? "🔥" : "❄️"} ${s.hotDigit} (${s.hotPct.toFixed(1)}%)`;
+      let hd = 0, hp = 0;
+      for (let d = 0; d < 10; d++) {
+        const pct = (s.digits[d] / s.total) * 100;
+        const dev = Math.abs(pct - 10);
+        if (dev > hd) { hd = dev; hp = pct; }
+      }
+      if (hd > strongestDev) {
+        strongestDev = hd;
+        strongestSignal = `${m.short} · ${hp > 10 ? "🔥" : "❄️"} ${hp.toFixed(1)}%`;
       }
     }
   });
@@ -266,7 +253,6 @@ function setStatus(stateName, text) {
   if (stateName === "error") statusDot.classList.add("error");
 }
 
-// ---- BOOT ----
 buildCards();
 connect();
 
